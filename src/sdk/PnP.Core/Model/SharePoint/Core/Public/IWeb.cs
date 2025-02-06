@@ -612,15 +612,17 @@ namespace PnP.Core.Model.SharePoint
         /// Creates a new modern page
         /// </summary>
         /// <param name="pageLayoutType">Optionally specify the page type, defaults to <see cref="PageLayoutType.Article"/></param>
+        /// <param name="editorType">Editor type to be used by the new page, CK4 is the legacy model, CK5 the current</param>
         /// <returns>Created modern page</returns>
-        public Task<IPage> NewPageAsync(PageLayoutType pageLayoutType = PageLayoutType.Article);
+        public Task<IPage> NewPageAsync(PageLayoutType pageLayoutType = PageLayoutType.Article, EditorType editorType = EditorType.CK5);
 
         /// <summary>
         /// Creates a new modern page
         /// </summary>
         /// <param name="pageLayoutType">Optionally specify the page type, defaults to <see cref="PageLayoutType.Article"/></param>
+        /// <param name="editorType">Editor type to be used by the new page, CK4 is the legacy model, CK5 the current</param>
         /// <returns>Created modern page</returns>
-        public IPage NewPage(PageLayoutType pageLayoutType = PageLayoutType.Article);
+        public IPage NewPage(PageLayoutType pageLayoutType = PageLayoutType.Article, EditorType editorType = EditorType.CK5);
         #endregion
 
         #region GetFolderByServerRelativeUrl
@@ -890,6 +892,18 @@ namespace PnP.Core.Model.SharePoint
         #endregion
 
         #region Users
+
+        /// <summary>
+        /// Retrieves everyone except external users and ensures the user in the current web
+        /// </summary>
+        /// <returns>The ensured <see cref="ISharePointUser"/></returns>
+        public Task<ISharePointUser> EnsureEveryoneExceptExternalUsersAsync();
+
+        /// <summary>
+        /// Retrieves everyone except external users and ensures the user in the current web
+        /// </summary>
+        /// <returns>The ensured <see cref="ISharePointUser"/></returns>
+        public ISharePointUser EnsureEveryoneExceptExternalUsers();
 
         /// <summary>
         /// Ensures the given users exists

@@ -363,14 +363,14 @@ namespace PnP.Core.Model.SharePoint
             return GetPagesAsync(pageName).GetAwaiter().GetResult();
         }
 
-        public async Task<IPage> NewPageAsync(PageLayoutType pageLayoutType = PageLayoutType.Article)
+        public async Task<IPage> NewPageAsync(PageLayoutType pageLayoutType = PageLayoutType.Article, EditorType editorType = EditorType.CK5)
         {
-            return await Page.NewPageAsync(PnPContext, pageLayoutType).ConfigureAwait(false);
+            return await Page.NewPageAsync(PnPContext, pageLayoutType, editorType).ConfigureAwait(false);
         }
 
-        public IPage NewPage(PageLayoutType pageLayoutType = PageLayoutType.Article)
+        public IPage NewPage(PageLayoutType pageLayoutType = PageLayoutType.Article, EditorType editorType = EditorType.CK5)
         {
-            return NewPageAsync(pageLayoutType).GetAwaiter().GetResult();
+            return NewPageAsync(pageLayoutType, editorType).GetAwaiter().GetResult();
         }
 
         public async Task<IVivaDashboard> GetVivaDashboardAsync()
@@ -445,8 +445,9 @@ namespace PnP.Core.Model.SharePoint
         {
             // NOTE WebUtility encode spaces to "+" instead of %20
             // Replace %20 by space as otherwise %20 gets encoded as %2520 which will break the API request
-            string encodedServerRelativeUrl = WebUtility.UrlEncode(serverRelativeUrl.Replace("'", "''").Replace("%20", " ")).Replace("+", "%20");
-            var apiCall = new ApiCall($"_api/Web/getFolderByServerRelativePath(decodedUrl='{encodedServerRelativeUrl}')", ApiType.SPORest);
+            // When using the "parameter" model (@u) the server relative URL has to be specified using /, using \ only works in the non parameterized version (#1412)
+            string encodedServerRelativeUrl = WebUtility.UrlEncode(serverRelativeUrl.Replace("'", "''").Replace("%20", " ").Replace("\\", "/")).Replace("+", "%20");
+            var apiCall = new ApiCall($"_api/Web/getFolderByServerRelativePath(decodedUrl=@u)?@u='{encodedServerRelativeUrl}'", ApiType.SPORest);
             return apiCall;
         }
         #endregion
@@ -584,8 +585,9 @@ namespace PnP.Core.Model.SharePoint
         {
             // NOTE WebUtility encode spaces to "+" instead of %20
             // Replace %20 by space as otherwise %20 gets encoded as %2520 which will break the API request
-            string encodedServerRelativeUrl = WebUtility.UrlEncode(serverRelativeUrl.Replace("'", "''").Replace("%20", " ")).Replace("+", "%20");
-            var apiCall = new ApiCall($"_api/Web/getFileByServerRelativePath(decodedUrl='{encodedServerRelativeUrl}')", ApiType.SPORest);
+            // When using the "parameter" model (@u) the server relative URL has to be specified using /, using \ only works in the non parameterized version (#1412)
+            string encodedServerRelativeUrl = WebUtility.UrlEncode(serverRelativeUrl.Replace("'", "''").Replace("%20", " ").Replace("\\", "/")).Replace("+", "%20");
+            var apiCall = new ApiCall($"_api/Web/getFileByServerRelativePath(decodedUrl=@u)?@u='{encodedServerRelativeUrl}'", ApiType.SPORest);
             return apiCall;
         }
 
@@ -726,6 +728,169 @@ namespace PnP.Core.Model.SharePoint
         #endregion
 
         #region Users
+
+        public ISharePointUser EnsureEveryoneExceptExternalUsers()
+        {
+            return EnsureEveryoneExceptExternalUsersAsync().GetAwaiter().GetResult();
+        }
+
+        public async Task<ISharePointUser> EnsureEveryoneExceptExternalUsersAsync()
+        {
+            try
+            {
+                var tenantId = await PnPContext.GetTenantIdAsync().ConfigureAwait(false);
+                var loginName = $"c:0-.f|rolemanager|spo-grid-all-users/{tenantId}";
+                return await EnsureUserAsync(loginName).ConfigureAwait(false);
+            }
+            catch(SharePointRestServiceException ex) when (ex.HResult == -2146233088)
+            {
+                var web = await GetAsync(p=>p.Language).ConfigureAwait(false);
+                string userIdentity = null;
+                switch (web.Language)
+                {
+                    case 1025: // Arabic
+                        userIdentity = "الجميع باستثناء المستخدمين الخارجيين";
+                        break;
+                    case 1069: // Basque
+                        userIdentity = "Guztiak kanpoko erabiltzaileak izan ezik";
+                        break;
+                    case 1026: // Bulgarian
+                        userIdentity = "Всички освен външни потребители";
+                        break;
+                    case 1027: // Catalan
+                        userIdentity = "Tothom excepte els usuaris externs";
+                        break;
+                    case 2052: // Chinese (Simplified)
+                        userIdentity = "除外部用户外的任何人";
+                        break;
+                    case 1028: // Chinese (Traditional)
+                        userIdentity = "外部使用者以外的所有人";
+                        break;
+                    case 1050: // Croatian
+                        userIdentity = "Svi osim vanjskih korisnika";
+                        break;
+                    case 1029: // Czech
+                        userIdentity = "Všichni kromě externích uživatelů";
+                        break;
+                    case 1030: // Danish
+                        userIdentity = "Alle undtagen eksterne brugere";
+                        break;
+                    case 1043: // Dutch
+                        userIdentity = "Iedereen behalve externe gebruikers";
+                        break;
+                    case 1033: // English
+                        userIdentity = "Everyone except external users";
+                        break;
+                    case 1061: // Estonian
+                        userIdentity = "Kõik peale väliskasutajate";
+                        break;
+                    case 1035: // Finnish
+                        userIdentity = "Kaikki paitsi ulkoiset käyttäjät";
+                        break;
+                    case 1036: // French
+                        userIdentity = "Tout le monde sauf les utilisateurs externes";
+                        break;
+                    case 1110: // Galician
+                        userIdentity = "Todo o mundo excepto os usuarios externos";
+                        break;
+                    case 1031: // German
+                        userIdentity = "Jeder, außer externen Benutzern";
+                        break;
+                    case 1032: // Greek
+                        userIdentity = "Όλοι εκτός από εξωτερικούς χρήστες";
+                        break;
+                    case 1037: // Hebrew
+                        userIdentity = "כולם פרט למשתמשים חיצוניים";
+                        break;
+                    case 1081: // Hindi
+                        userIdentity = "बाह्य उपयोगकर्ताओं को छोड़कर सभी";
+                        break;
+                    case 1038: // Hungarian
+                        userIdentity = "Mindenki, kivéve külső felhasználók";
+                        break;
+                    case 1057: // Indonesian
+                        userIdentity = "Semua orang kecuali pengguna eksternal";
+                        break;
+                    case 1040: // Italian
+                        userIdentity = "Tutti tranne gli utenti esterni";
+                        break;
+                    case 1041: // Japanese
+                        userIdentity = "外部ユーザー以外のすべてのユーザー";
+                        break;
+                    case 1087: // Kazakh
+                        userIdentity = "Сыртқы пайдаланушылардан басқасының барлығы";
+                        break;
+                    case 1042: // Korean
+                        userIdentity = "외부 사용자를 제외한 모든 사람";
+                        break;
+                    case 1062: // Latvian
+                        userIdentity = "Visi, izņemot ārējos lietotājus";
+                        break;
+                    case 1063: // Lithuanian
+                        userIdentity = "Visi, išskyrus išorinius vartotojus";
+                        break;
+                    case 1086: // Malay
+                        userIdentity = "Semua orang kecuali pengguna luaran";
+                        break;
+                    case 1044: // Norwegian (Bokmål)
+                        userIdentity = "Alle bortsett fra eksterne brukere";
+                        break;
+                    case 1045: // Polish
+                        userIdentity = "Wszyscy oprócz użytkowników zewnętrznych";
+                        break;
+                    case 1046: // Portuguese (Brazil)
+                        userIdentity = "Todos exceto os usuários externos";
+                        break;
+                    case 2070: // Portuguese (Portugal)
+                        userIdentity = "Todos exceto os utilizadores externos";
+                        break;
+                    case 1048: // Romanian
+                        userIdentity = "Toată lumea, cu excepția utilizatorilor externi";
+                        break;
+                    case 1049: // Russian
+                        userIdentity = "Все, кроме внешних пользователей";
+                        break;
+                    case 10266: // Serbian (Cyrillic, Serbia)
+                        userIdentity = "Сви осим спољних корисника";
+                        break;
+                    case 2074:// Serbian (Latin)
+                        userIdentity = "Svi osim spoljnih korisnika";
+                        break;
+                    case 1051:// Slovak
+                        userIdentity = "Všetci okrem externých používateľov";
+                        break;
+                    case 1060: // Slovenian
+                        userIdentity = "Vsi razen zunanji uporabniki";
+                        break;
+                    case 3082: // Spanish
+                        userIdentity = "Todos excepto los usuarios externos";
+                        break;
+                    case 1053: // Swedish
+                        userIdentity = "Alla utom externa användare";
+                        break;
+                    case 1054: // Thai
+                        userIdentity = "ทุกคนยกเว้นผู้ใช้ภายนอก";
+                        break;
+                    case 1055: // Turkish
+                        userIdentity = "Dış kullanıcılar hariç herkes";
+                        break;
+                    case 1058: // Ukranian
+                        userIdentity = "Усі, крім зовнішніх користувачів";
+                        break;
+                    case 1066: // Vietnamese
+                        userIdentity = "Tất cả mọi người trừ người dùng bên ngoài";
+                        break;
+                }
+
+                if (!string.IsNullOrEmpty(userIdentity))
+                {
+                    return await EnsureUserAsync(userIdentity).ConfigureAwait(false);
+                }
+            }
+
+            throw new ClientException(ErrorType.Unsupported, PnPCoreResources.Exception_Web_EveyoneExceptUsersCouldNotBeEnsured);
+        }
+
         public ISharePointUser EnsureUser(string userPrincipalName)
         {
             return EnsureUserAsync(userPrincipalName).GetAwaiter().GetResult();
@@ -952,7 +1117,7 @@ namespace PnP.Core.Model.SharePoint
 
             List<Tuple<string, BatchRequest>> requests = new();
             var batch = PnPContext.NewBatch();
-            foreach(var user in userList)
+            foreach (var user in userList)
             {
                 requests.Add(Tuple.Create(user, await RawRequestBatchAsync(batch, new ApiCall($"users/{user}", ApiType.Graph), HttpMethod.Get, "GetUser").ConfigureAwait(false)));
             }
@@ -965,7 +1130,7 @@ namespace PnP.Core.Model.SharePoint
                     nonExistingUsers.Add(request.Item1);
                 }
             }
-          
+
             return nonExistingUsers;
         }
 
@@ -979,7 +1144,7 @@ namespace PnP.Core.Model.SharePoint
             var nonExistingUsers = await ValidateUsersAsync(userList).ConfigureAwait(false);
 
             List<ISharePointUser> ensuredUsers = new();
-            
+
             var batch = PnPContext.NewBatch();
             foreach (var user in userList)
             {
@@ -1180,13 +1345,13 @@ namespace PnP.Core.Model.SharePoint
             {
                 targetMail = "";
             }
-            
+
             // Build body
             var useAccessRequest = new
             {
                 useAccessRequestDefault = operation == AccessRequestOption.Enabled ? "true" : "false"
             }.AsExpando();
-            
+
             string useAccessRequestBody = JsonSerializer.Serialize(useAccessRequest, typeof(ExpandoObject), PnPConstants.JsonSerializer_IgnoreNullValues);
             var setUseAccessRequestDefaultAndUpdateRequest = new ApiCall($"_api/web/setUseaccessrequestdefaultandupdate", ApiType.SPORest, useAccessRequestBody);
             await RawRequestAsync(setUseAccessRequestDefaultAndUpdateRequest, HttpMethod.Post).ConfigureAwait(false);
@@ -1196,7 +1361,7 @@ namespace PnP.Core.Model.SharePoint
                 __metadata = new { type = "SP.Web" },
                 RequestAccessEmail = targetMail
             }.AsExpando();
-            
+
             string updateRequestAccessMailBody = JsonSerializer.Serialize(updateRequestAccessMail, typeof(ExpandoObject), PnPConstants.JsonSerializer_IgnoreNullValues);
             var updateRequestAccessMailRequest = new ApiCall($"_api/web", ApiType.SPORest, updateRequestAccessMailBody);
             await RawRequestAsync(updateRequestAccessMailRequest, new HttpMethod("PATCH")).ConfigureAwait(false);
@@ -2171,6 +2336,10 @@ namespace PnP.Core.Model.SharePoint
                 DatesInUtc = true,
             };
 
+            // Clear the cached item from previous runs
+            TaxonomyHiddenList.Items.Clear();
+
+            // Fetch the item
             await TaxonomyHiddenList.LoadItemsByCamlQueryAsync(camlQuery).ConfigureAwait(false);
             var items = TaxonomyHiddenList.Items.AsRequested();
 
@@ -2219,7 +2388,10 @@ namespace PnP.Core.Model.SharePoint
 
         private static ApiCall BuildGetUserEffectivePermissionsApiCall(string userPrincipalName)
         {
-            return new ApiCall($"_api/web/getusereffectivepermissions('{HttpUtility.UrlEncode("i:0#.f|membership|")}{userPrincipalName}')", ApiType.SPORest);
+            return new ApiCall($"_api/web/getusereffectivepermissions('{HttpUtility.UrlEncode("i:0#.f|membership|" + userPrincipalName)}')", ApiType.SPORest)
+            {
+                SkipCollectionClearing = true
+            };
         }
 
         public bool CheckIfUserHasPermissions(string userPrincipalName, PermissionKind permissionKind)

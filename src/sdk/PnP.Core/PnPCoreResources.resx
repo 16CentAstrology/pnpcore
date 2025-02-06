@@ -498,4 +498,13 @@
   <data name="Exception_Unsupported_AccessRequest_NoMail" xml:space="preserve">
     <value>You need to pass a valid mail when using the operation 'SpecificMail'</value>
   </data>
+  <data name="Exception_Page_NotSupportedPageTypeForCreate" xml:space="preserve">
+    <value>Topic and News Digest pages are not supported for creation, they can be read, copied and deleted but you can't create new ones</value>
+  </data>
+  <data name="Exception_Web_EveyoneExceptUsersCouldNotBeEnsured" xml:space="preserve">
+    <value>The Everyone except external users could not be ensured</value>
+  </data>
+  <data name="Exception_ListItem_CSOMUpdate_MissingListId" xml:space="preserve">
+    <value>The list id of the updated list item was not found.</value>
+  </data>
 </root>

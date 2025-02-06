@@ -4,7 +4,9 @@ using PnP.Core.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Globalization;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -17,7 +19,7 @@ namespace PnP.Core.Model.SharePoint
     /// Folder class, write your custom code here
     /// </summary>
     [SharePointType("SP.Folder", Target = typeof(Web), Uri = "_api/Web/getFolderById('{Id}')", LinqGet = "_api/Web/Folders")]
-    [SharePointType("SP.Folder", Target = typeof(Folder), Uri = "_api/Web/getFolderById('{Id}')", Get = "_api/Web/getFolderById('{Parent.Id}')/Folders", LinqGet = "_api/Web/getFolderById('{Parent.Id}')/Folders")]
+    [SharePointType("SP.Folder", Target = typeof(Folder), Uri = "_api/Web/getFolderById('{Id}')", Get = "_api/Web/getFolderById('{Parent.Id}')", LinqGet = "_api/Web/getFolderById('{Parent.Id}')/Folders")]
     [SharePointType("SP.Folder", Target = typeof(List), Uri = "_api/Web/Lists(guid'{Parent.Id}')/rootFolder", LinqGet = "_api/Web/Lists(guid'{Parent.Id}')/Folders")]
     [SharePointType("SP.Folder", Target = typeof(ListItem), Uri = "_api/Web/Lists(guid'{List.Id}')/Items({Parent.Id})/Folder")]
     internal sealed class Folder : BaseDataModel<IFolder>, IFolder
@@ -41,7 +43,7 @@ namespace PnP.Core.Model.SharePoint
                 //}
 
                 string encodedPath = WebUtility.UrlEncode(Name.Replace("'", "''").Replace("%20", " ")).Replace("+", "%20");
-                return new ApiCall($"{entity.SharePointGet}/AddUsingPath(decodedurl='{encodedPath}')", ApiType.SPORest);
+                return new ApiCall($"{entity.SharePointGet}/Folders/AddUsingPath(decodedurl='{encodedPath}')", ApiType.SPORest);
             };
         }
         #endregion
@@ -307,7 +309,7 @@ namespace PnP.Core.Model.SharePoint
         #endregion
 
         #region EnsureFolder
-        public async Task<IFolder> EnsureFolderAsync(string folderRelativeUrl)
+        public async Task<IFolder> EnsureFolderAsync(string folderRelativeUrl, params Expression<Func<IFolder, object>>[] expressions)
         {
             if (string.IsNullOrEmpty(folderRelativeUrl))
             {
@@ -330,7 +332,7 @@ namespace PnP.Core.Model.SharePoint
                 {
                     try
                     {
-                        currentFolder = await currentFolder.PnPContext.Web.GetFolderByServerRelativeUrlAsync(currentUrl).ConfigureAwait(false);
+                        currentFolder = await currentFolder.PnPContext.Web.GetFolderByServerRelativeUrlAsync(currentUrl, expressions).ConfigureAwait(false);
                     }
                     catch (SharePointRestServiceException)
                     {
@@ -347,9 +349,31 @@ namespace PnP.Core.Model.SharePoint
             return currentFolder;
         }
 
-        public IFolder EnsureFolder(string folderRelativeUrl)
+        public IFolder EnsureFolder(string folderRelativeUrl, params Expression<Func<IFolder, object>>[] expressions)
         {
-            return EnsureFolderAsync(folderRelativeUrl).GetAwaiter().GetResult();
+            return EnsureFolderAsync(folderRelativeUrl, expressions).GetAwaiter().GetResult();
+        }
+        #endregion
+
+        #region Rename folder
+        public async Task RenameAsync(string name)
+        {
+            var (driveId, driveItemId) = await GetGraphIdsAsync().ConfigureAwait(false);
+
+            dynamic body = new
+            {
+                name
+            };
+
+            var apiCall = new ApiCall($"sites/{PnPContext.Uri.DnsSafeHost},{PnPContext.Site.Id},{PnPContext.Web.Id}/drives/{driveId}/items/{driveItemId}", ApiType.Graph, JsonSerializer.Serialize(body, PnPConstants.JsonSerializer_IgnoreNullValues));
+            await RequestAsync(apiCall, new HttpMethod("PATCH")).ConfigureAwait(false);
+            // Update the Name property without marking the folder as changed
+            SetSystemValue(name, nameof(Name));
+        }
+
+        public void Rename(string name)
+        {
+            RenameAsync(name).GetAwaiter().GetResult();
         }
         #endregion
 
@@ -473,37 +497,7 @@ namespace PnP.Core.Model.SharePoint
             {
                 // We need to the id of the list hosting this folder, which can be obtained using different strategies
 
-                // Option A: try walking the parent tree to see if there's an IList
-                Guid docLibId = GetListIdFromFolder(this);
-
-                if (docLibId == Guid.Empty)
-                {
-                    // Option B: check if the ListItemAllFields property is loaded with the parent list property
-                    if (IsPropertyAvailable(p=>p.ListItemAllFields) && ListItemAllFields.IsPropertyAvailable(p=>p.ParentList))
-                    {
-                        docLibId = ListItemAllFields.ParentList.Id;
-                    }
-                }
-
-                if (docLibId == Guid.Empty)
-                {
-                    // Option C: get id from property bag
-                    if (IsPropertyAvailable(p => p.Properties))
-                    {
-                        docLibId = DiscoverDocLibId(Properties);
-                    }
-                }
-
-                if (docLibId == Guid.Empty)
-                {
-                    // Option D: load the needed information - requires server roundtrip
-                    var tempFolder = await GetAsync(p => p.Properties).ConfigureAwait(false);
-
-                    if (tempFolder.IsPropertyAvailable(p => p.Properties))
-                    {
-                        docLibId = DiscoverDocLibId(tempFolder.Properties);
-                    }
-                }
+                Guid docLibId = await GetLibraryIdFromFolderAsync().ConfigureAwait(false);
 
                 if (docLibId != Guid.Empty)
                 {
@@ -519,6 +513,43 @@ namespace PnP.Core.Model.SharePoint
 
 
             return (driveId, driveItemId);
+        }
+
+        internal async Task<Guid> GetLibraryIdFromFolderAsync()
+        {
+            // Option A: try walking the parent tree to see if there's an IList
+            Guid docLibId = GetListIdFromFolder(this);
+
+            if (docLibId == Guid.Empty)
+            {
+                // Option B: check if the ListItemAllFields property is loaded with the parent list property
+                if (IsPropertyAvailable(p => p.ListItemAllFields) && ListItemAllFields.IsPropertyAvailable(p => p.ParentList))
+                {
+                    docLibId = ListItemAllFields.ParentList.Id;
+                }
+            }
+
+            if (docLibId == Guid.Empty)
+            {
+                // Option C: get id from property bag
+                if (IsPropertyAvailable(p => p.Properties))
+                {
+                    docLibId = DiscoverDocLibId(Properties);
+                }
+            }
+
+            if (docLibId == Guid.Empty)
+            {
+                // Option D: load the needed information - requires server roundtrip
+                var tempFolder = await GetAsync(p => p.Properties).ConfigureAwait(false);
+
+                if (tempFolder.IsPropertyAvailable(p => p.Properties))
+                {
+                    docLibId = DiscoverDocLibId(tempFolder.Properties);
+                }
+            }
+
+            return docLibId;
         }
 
         private static Guid DiscoverDocLibId(IPropertyValues properties)
@@ -576,7 +607,7 @@ namespace PnP.Core.Model.SharePoint
         {
             var (driveId, driveItemId) = await GetGraphIdsAsync().ConfigureAwait(false);
 
-            var apiCall = new ApiCall($"sites/{PnPContext.Site.Id}/drives/{driveId}/items/{driveItemId}/permissions?$filter=Link ne null", ApiType.GraphBeta);
+            var apiCall = new ApiCall($"sites/{PnPContext.Uri.DnsSafeHost},{PnPContext.Site.Id},{PnPContext.Web.Id}/drives/{driveId}/items/{driveItemId}/permissions?$filter=Link ne null", ApiType.GraphBeta);
             var response = await RawRequestAsync(apiCall, HttpMethod.Get).ConfigureAwait(false);
 
             if (string.IsNullOrEmpty(response.Json))
@@ -654,7 +685,7 @@ namespace PnP.Core.Model.SharePoint
 
             if (anonymousLinkOptions.ExpirationDateTime != DateTime.MinValue)
             {
-                body.expirationDateTime = anonymousLinkOptions.ExpirationDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                body.expirationDateTime = anonymousLinkOptions.ExpirationDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
             }
 
             return await CreateSharingLinkAsync(body).ConfigureAwait(false);
@@ -669,7 +700,7 @@ namespace PnP.Core.Model.SharePoint
         {
             var (driveId, driveItemId) = await GetGraphIdsAsync().ConfigureAwait(false);
 
-            var apiCall = new ApiCall($"sites/{PnPContext.Site.Id}/drives/{driveId}/items/{driveItemId}/createLink", ApiType.GraphBeta, jsonBody: JsonSerializer.Serialize(body, typeof(ExpandoObject), PnPConstants.JsonSerializer_WriteIndentedFalse_CamelCase_JsonStringEnumConverter));
+            var apiCall = new ApiCall($"sites/{PnPContext.Uri.DnsSafeHost},{PnPContext.Site.Id},{PnPContext.Web.Id}/drives/{driveId}/items/{driveItemId}/createLink", ApiType.GraphBeta, jsonBody: JsonSerializer.Serialize(body, typeof(ExpandoObject), PnPConstants.JsonSerializer_WriteIndentedFalse_CamelCase_JsonStringEnumConverter));
             var response = await RawRequestAsync(apiCall, HttpMethod.Post).ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created)
@@ -735,12 +766,12 @@ namespace PnP.Core.Model.SharePoint
 
             if (inviteOptions.ExpirationDateTime != DateTime.MinValue)
             {
-                body.expirationDateTime = inviteOptions.ExpirationDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                body.expirationDateTime = inviteOptions.ExpirationDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
             }
 
             var (driveId, driveItemId) = await GetGraphIdsAsync().ConfigureAwait(false);
 
-            var apiCall = new ApiCall($"sites/{PnPContext.Site.Id}/drives/{driveId}/items/{driveItemId}/invite", ApiType.GraphBeta, jsonBody: JsonSerializer.Serialize(body, typeof(ExpandoObject), PnPConstants.JsonSerializer_IgnoreNullValues_CamelCase));
+            var apiCall = new ApiCall($"sites/{PnPContext.Uri.DnsSafeHost},{PnPContext.Site.Id},{PnPContext.Web.Id}/drives/{driveId}/items/{driveItemId}/invite", ApiType.GraphBeta, jsonBody: JsonSerializer.Serialize(body, typeof(ExpandoObject), PnPConstants.JsonSerializer_IgnoreNullValues_CamelCase));
 
             var response = await RawRequestAsync(apiCall, HttpMethod.Post).ConfigureAwait(false);
 

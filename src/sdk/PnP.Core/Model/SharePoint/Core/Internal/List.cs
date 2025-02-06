@@ -108,11 +108,13 @@ namespace PnP.Core.Model.SharePoint
         //[GraphProperty("list", JsonPath = "template")]
         public ListTemplateType TemplateType { get => GetValue<ListTemplateType>(); set => SetValue(value); }
 
+        public ListBaseType BaseType { get => GetValue<ListBaseType>(); set => SetValue(value); }
+
         public bool EnableVersioning { get => GetValue<bool>(); set => SetValue(value); }
 
         public bool EnableMinorVersions { get => GetValue<bool>(); set => SetValue(value); }
 
-        public int DraftVersionVisibility { get => GetValue<int>(); set => SetValue(value); }
+        public DraftVisibilityType DraftVersionVisibility { get => GetValue<DraftVisibilityType>(); set => SetValue(value); }
 
         public bool EnableModeration { get => GetValue<bool>(); set => SetValue(value); }
 
@@ -150,7 +152,9 @@ namespace PnP.Core.Model.SharePoint
         public string DefaultNewFormUrl { get => GetValue<string>(); set => SetValue(value); }
 
         public string DefaultViewUrl { get => GetValue<string>(); set => SetValue(value); }
-        
+
+        public bool DefaultItemOpenInBrowser { get => GetValue<bool>(); set => SetValue(value); }
+
         public ListReadingDirection Direction { get => GetValue<ListReadingDirection>(); set => SetValue(value); }
 
         public string ImageUrl { get => GetValue<string>(); set => SetValue(value); }
@@ -1410,7 +1414,10 @@ namespace PnP.Core.Model.SharePoint
 
         private ApiCall BuildGetUserEffectivePermissionsApiCall(string userPrincipalName)
         {
-            return new ApiCall($"_api/web/lists(guid'{Id}')/getusereffectivepermissions('{HttpUtility.UrlEncode("i:0#.f|membership|")}{userPrincipalName}')", ApiType.SPORest);
+            return new ApiCall($"_api/web/lists(guid'{Id}')/getusereffectivepermissions('{HttpUtility.UrlEncode("i:0#.f|membership|")}{userPrincipalName}')", ApiType.SPORest)
+            {
+                SkipCollectionClearing = true
+            };
         }
 
         public bool CheckIfUserHasPermissions(string userPrincipalName, PermissionKind permissionKind)

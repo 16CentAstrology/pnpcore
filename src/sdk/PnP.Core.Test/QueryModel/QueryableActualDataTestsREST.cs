@@ -145,6 +145,24 @@ namespace PnP.Core.Test.QueryModel
         }
 
         [TestMethod]
+        public async Task TestQueryItemsFilterOnDateAsync_REST()
+        {
+            // TestCommon.Instance.Mocking = false;
+            using (var context = await TestCommon.Instance.GetContextAsync(TestCommon.TestSite))
+            {
+                context.GraphFirst = false;
+
+                var dt = DateTime.UtcNow;
+                var lists = await context.Web.Lists.Where(p => p.Title == "Site Pages" && p.LastItemModifiedDate <= dt).ToListAsync();                
+                Assert.IsTrue(lists.Count == 1);
+
+                var dto = DateTimeOffset.UtcNow;
+                lists = await context.Web.Lists.Where(p => p.Title == "Site Pages" && p.LastItemModifiedDate <= dto).ToListAsync();
+                Assert.IsTrue(lists.Count == 1);
+            }
+        }
+
+        [TestMethod]
         public async Task TestQueryFirstOrDefaultNoPredicateLINQ_REST()
         {
             // TestCommon.Instance.Mocking = false;
@@ -284,7 +302,7 @@ namespace PnP.Core.Test.QueryModel
         {
             var expected = "Documents";
 
-            // TestCommon.Instance.Mocking = false;
+            //TestCommon.Instance.Mocking = false;
             using (var context = await TestCommon.Instance.GetContextAsync(TestCommon.TestSite))
             {
                 context.GraphFirst = false;
@@ -292,13 +310,15 @@ namespace PnP.Core.Test.QueryModel
                 var actual = context.Web.Lists.GetByTitle(expected,
                     l => l.Id,
                     l => l.Title,
-                    l => l.TemplateType
+                    l => l.TemplateType,
+                    l => l.BaseType
                     );
 
                 Assert.IsNotNull(actual);
                 Assert.AreEqual(expected, actual.Title);
                 Assert.AreNotEqual(Guid.Empty, actual.Id);
                 Assert.AreEqual(ListTemplateType.DocumentLibrary, actual.TemplateType);
+                Assert.AreEqual(ListBaseType.DocumentLibrary, actual.BaseType);
             }
         }
 

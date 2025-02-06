@@ -358,6 +358,15 @@ namespace PnP.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The list id of the updated list item was not found..
+        /// </summary>
+        internal static string Exception_ListItem_CSOMUpdate_MissingListId {
+            get {
+                return ResourceManager.GetString("Exception_ListItem_CSOMUpdate_MissingListId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There was an exception while writing field {0}. Verify you&apos;re using the correct InternalName value for the field you want to write to..
         /// </summary>
         internal static string Exception_ListItemAdd_WrongInternalFieldName {
@@ -498,6 +507,15 @@ namespace PnP.Core {
         internal static string Exception_Page_NoClientSideComponentsRetrieved {
             get {
                 return ResourceManager.GetString("Exception_Page_NoClientSideComponentsRetrieved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Topic and News Digest pages are not supported for creation, they can be read, copied and deleted but you can&apos;t create new ones.
+        /// </summary>
+        internal static string Exception_Page_NotSupportedPageTypeForCreate {
+            get {
+                return ResourceManager.GetString("Exception_Page_NotSupportedPageTypeForCreate", resourceCulture);
             }
         }
         
@@ -1128,6 +1146,15 @@ namespace PnP.Core {
         internal static string Exception_UserPrincipalNameEmpty {
             get {
                 return ResourceManager.GetString("Exception_UserPrincipalNameEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The Everyone except external users could not be ensured.
+        /// </summary>
+        internal static string Exception_Web_EveyoneExceptUsersCouldNotBeEnsured {
+            get {
+                return ResourceManager.GetString("Exception_Web_EveyoneExceptUsersCouldNotBeEnsured", resourceCulture);
             }
         }
         

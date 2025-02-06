@@ -46,7 +46,9 @@ namespace PnP.Core.Admin.Model.SharePoint
         public IList<string> AllowSelectSecurityGroupsInSPSitesList { get => GetValue<IList<string>>(); set => SetValue(value); }
 
         public IList<string> AllowSelectSGsInODBListInTenant { get => GetValue<IList<string>>(); set => SetValue(value); }
-        
+
+        public bool AllowWebPropertyBagUpdateWhenDenyAddAndCustomizePagesIsEnabled { get => GetValue<bool>(); set => SetValue(value); }
+
         public bool AnyoneLinkTrackUsers { get => GetValue<bool>(); set => SetValue(value); }
         
         public bool ApplyAppEnforcedRestrictionsToAdHocRecipients { get => GetValue<bool>(); set => SetValue(value); }
@@ -62,8 +64,6 @@ namespace PnP.Core.Admin.Model.SharePoint
         public BlockDownloadLinksFileTypes BlockDownloadLinksFileType { get => GetValue<BlockDownloadLinksFileTypes>(); set => SetValue(value); }
 
         public bool BlockDownloadFileTypePolicy { get => GetValue<bool>(); set => SetValue(value); }
-
-        public IList<SPBlockDownloadFileTypeId> BlockDownloadFileTypeIds { get => GetValue<IList<SPBlockDownloadFileTypeId>>(); set => SetValue(value); }
 
         public bool BlockDownloadOfAllFilesForGuests { get => GetValue<bool>(); set => SetValue(value); }
         
@@ -170,8 +170,6 @@ namespace PnP.Core.Admin.Model.SharePoint
         public bool EnablePromotedFileHandlers { get => GetValue<bool>(); set => SetValue(value); }
         
         public bool EnableRestrictedAccessControl { get => GetValue<bool>(); set => SetValue(value); }
-
-        public IList<Guid> ExcludedBlockDownloadGroupIds { get => GetValue<IList<Guid>>(); set => SetValue(value); }
 
         public IList<string> ExcludedFileExtensionsForSyncClient { get => GetValue<IList<string>>(); set => SetValue(value); }
         
